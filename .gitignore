@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.coverage
+
+# Ambientes virtuais
+.venv/
+venv/
+env/
+.env
+
+# Banco local SQLite e dados locais
+editor_grafica.db
+editor_grafica.db-*
+data/
+
+# Uploads de usuários (mantém apenas ativos demo)
+uploads/*
+!uploads/demo/
+!uploads/demo/*
+
+# Arquivos locais temporários
+texto prompt.txt
+*.log
+.DS_Store
+Thumbs.db
