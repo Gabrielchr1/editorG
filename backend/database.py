@@ -86,9 +86,27 @@ def _migration_v2_metadata_and_export_tracking(conn) -> None:
     )
 
 
+def _migration_v3_ecommerce_expansion(conn) -> None:
+    """Expande tabela projects com vínculos comerciais, versão e dono sem apagar dados."""
+    ensure_columns(
+        conn,
+        "projects",
+        {
+            "owner_id": "INTEGER DEFAULT NULL",
+            "product_id": "INTEGER DEFAULT NULL",
+            "template_id": "INTEGER DEFAULT NULL",
+            "template_version": "INTEGER DEFAULT 1",
+            "version": "INTEGER DEFAULT 1",
+            "status": "TEXT DEFAULT 'draft'",
+            "customization_options_json": "TEXT DEFAULT '{}'",
+        },
+    )
+
+
 MIGRATIONS: list[tuple[int, str, Callable]] = [
     (1, "initial_schema_columns", _migration_v1_initial_schema),
     (2, "metadata_and_export_tracking", _migration_v2_metadata_and_export_tracking),
+    (3, "ecommerce_expansion", _migration_v3_ecommerce_expansion),
 ]
 
 

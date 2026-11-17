@@ -23,6 +23,8 @@ from sqlalchemy.orm import Session
 
 from backend.calendar_engine import STATE_HOLIDAYS_BR, generate_agenda_pages
 from backend.database import SessionLocal, get_db, run_migrations
+from backend.ecommerce_routes import router as ecommerce_router
+from backend.ecommerce_seed import seed_ecommerce_data
 from backend.models import LibraryItem, Project
 from backend.pdf_engine import (
     export_batch_personalized_zip,
@@ -65,6 +67,7 @@ async def lifespan(app: FastAPI):
     db = SessionLocal()
     try:
         seed_initial_data(db)
+        seed_ecommerce_data(db)
     finally:
         db.close()
     yield
@@ -82,6 +85,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.include_router(ecommerce_router)
 
 
 def _serialize_project(proj: Project, include_config: bool = True) -> dict[str, Any]:

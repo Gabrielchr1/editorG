@@ -1,6 +1,7 @@
 // Conferência Completa, Pré-Impressão (Preflight), Exportação CMYK e Personalização em Massa
 
 import { MONTH_NAMES_PT, escXml, renderPageSVG } from "./calendar_client.js";
+import { icon } from "./core/icons.js";
 
 export async function runPreflightCheck(projectId, config) {
   const res = await fetch(`/api/projects/${projectId}/preflight`, {
@@ -18,7 +19,12 @@ export function renderPreflightReport(report, containerEl) {
     warning: `<span class="badge badge-warning">ATENÇÃO (${report.warnings} alerta(s))</span>`,
     error: `<span class="badge badge-danger">ERROS CRÍTICOS (${report.errors})</span>`,
   };
-  const iconMap = { ok: "✅", warning: "⚠️", error: "❌", info: "ℹ️" };
+  const iconMap = {
+    ok: `<span class="text-success">${icon("check", 15)}</span>`,
+    warning: `<span class="text-warning">${icon("shield", 15)}</span>`,
+    error: `<span class="text-danger">${icon("close", 15)}</span>`,
+    info: `<span class="text-accent">${icon("file-text", 15)}</span>`,
+  };
 
   let html = `
     <div class="preflight-header">
@@ -33,14 +39,14 @@ export function renderPreflightReport(report, containerEl) {
   (report.checks || []).forEach((chk) => {
     html += `
       <div class="preflight-item">
-        <div style="font-size:15px;">${iconMap[chk.status] || "•"}</div>
+        <div style="padding-top:2px;">${iconMap[chk.status] || "•"}</div>
         <div style="flex:1;min-width:0;">
           <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
             <strong style="font-size:12.5px;">${escXml(chk.title)}</strong>
             <span class="badge">${escXml(chk.category)}</span>
           </div>
           <div class="text-muted" style="font-size:11.5px;margin-top:3px;">${escXml(chk.detail)}</div>
-          ${chk.fix_hint ? `<div class="text-accent" style="font-size:11px;margin-top:3px;">💡 ${escXml(chk.fix_hint)}</div>` : ""}
+          ${chk.fix_hint ? `<div class="text-accent" style="font-size:11px;margin-top:3px;">Sugestão: ${escXml(chk.fix_hint)}</div>` : ""}
         </div>
       </div>
     `;

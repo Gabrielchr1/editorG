@@ -1,34 +1,139 @@
 <!DOCTYPE html>
-<html lang="pt-BR" data-theme="dark">
+<html lang="pt-BR" data-theme="light">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>EditorGráfica Pro — Plataforma de Miolos de Agendas CMYK</title>
+  <title>EditorGráfica Studio — Papelaria Personalizada &amp; Impressão CMYK</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet" />
   <script>
     (function () {
-      var saved = localStorage.getItem("eg_theme");
+      var saved = localStorage.getItem("eg_theme") || "light";
       if (saved === "light" || saved === "dark") {
         document.documentElement.setAttribute("data-theme", saved);
       }
     })();
   </script>
   <link rel="stylesheet" href="/static/css/styles.css" />
+  <link rel="stylesheet" href="/static/css/store.css" />
 </head>
 <body>
 
-<!-- ==================== PAINEL INICIAL (DASHBOARD) ==================== -->
-<section id="view-dashboard">
+<!-- ==================== LOJA VIRTUAL, ÁREA DO CLIENTE & PAINEL ADMIN ==================== -->
+<section id="view-store">
+  <div id="store-announcement" class="st-announcement">Impressão CMYK de Alta Fidelidade • Produção Sob Demanda com Prévia Digital</div>
+  <header class="st-header">
+    <div class="st-header-inner">
+      <div class="st-brand" id="st-brand-home">
+        <div class="st-brand-monogram">EG</div>
+        <div class="st-brand-text">
+          <div class="st-brand-name" id="st-brand-title">EditorGráfica Atelier</div>
+          <div class="st-brand-sub" id="st-brand-sub">Atelier • Papelaria CMYK</div>
+        </div>
+      </div>
+
+      <nav class="st-nav" id="st-main-nav" aria-label="Navegação principal">
+        <button class="st-nav-link active" data-st-route="home">Início</button>
+        <button class="st-nav-link" data-st-route="catalog">Catálogo</button>
+        <button class="st-nav-link" data-st-cat="agendas-diarias">Agendas</button>
+        <button class="st-nav-link" data-st-cat="planners">Planners</button>
+        <button class="st-nav-link" data-st-cat="cadernetas">Cadernetas</button>
+        <button class="st-nav-link hidden" id="st-nav-studio" data-st-action="open-studio">Editor Studio</button>
+        <button class="st-nav-link hidden" id="st-nav-admin" data-st-route="admin">Admin</button>
+      </nav>
+
+      <div class="st-header-actions">
+        <button id="st-btn-search-toggle" class="st-icon-btn" title="Buscar edições" aria-label="Buscar edições" aria-expanded="false">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.8-3.8"/></svg>
+        </button>
+
+        <button id="btn-theme-store" class="st-icon-btn" title="Alternar tema Claro/Escuro" aria-label="Alternar tema">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20.2 14.4A8.5 8.5 0 0 1 9.6 3.8a8.5 8.5 0 1 0 10.6 10.6Z"/></svg>
+        </button>
+
+        <button id="st-btn-fav" class="st-icon-btn" title="Favoritos" aria-label="Favoritos">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 20.4s-7.5-4.7-9.2-9.2A5.2 5.2 0 0 1 12 6.6a5.2 5.2 0 0 1 9.2 4.6c-1.7 4.5-9.2 9.2-9.2 9.2Z"/></svg>
+          <span id="st-fav-badge" class="st-icon-btn-dot hidden">0</span>
+        </button>
+
+        <button id="st-btn-account" class="st-btn st-btn-outline st-btn-sm" title="Minha Conta">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="8" r="4"/></svg>
+          <span id="st-btn-account-lbl" class="st-btn-lbl-mobile-hide">Entrar</span>
+        </button>
+
+        <button id="st-btn-cart" class="st-btn st-btn-dark st-btn-sm st-cart-pill" title="Sacola de Compras">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 8h12l1 12H5L6 8Z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg>
+          <span class="st-btn-lbl-mobile-hide">Sacola</span>
+          <span id="st-cart-badge" class="st-cart-count">0</span>
+        </button>
+
+        <button id="st-btn-mobile-menu" class="st-icon-btn st-mobile-menu-btn" aria-label="Abrir menu">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <div id="st-search-bar-panel" class="st-search-panel hidden">
+      <div class="st-container st-search-panel-inner">
+        <span class="st-search-panel-ico" aria-hidden="true">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.8-3.8"/></svg>
+        </span>
+        <input id="st-quick-search" class="st-search-panel-input" type="search" placeholder="Buscar agendas, planners, cadernetas Moleskine ou SKU..." aria-label="Buscar produtos" />
+        <button id="st-btn-search-submit" class="st-btn st-btn-dark st-btn-sm">Buscar</button>
+        <button id="st-btn-search-close" class="st-icon-btn" title="Fechar busca" aria-label="Fechar busca">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main id="store-main" style="flex:1;"></main>
+
+  <footer class="st-footer" id="store-footer"></footer>
+
+  <!-- Navegação Inferior estilo App Nativo (Mobile) -->
+  <nav id="st-mobile-tabbar" class="st-mobile-tabbar" aria-label="Barra do aplicativo">
+    <button class="st-mobile-tab-btn active" data-mobtab="home">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1v-9.5Z"/></svg>
+      <span>Início</span>
+    </button>
+    <button class="st-mobile-tab-btn" data-mobtab="catalog">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5"/></svg>
+      <span>Catálogo</span>
+    </button>
+    <button class="st-mobile-tab-btn" data-mobtab="customizable">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="9" cy="6" r="2" fill="var(--st-surface)"/><circle cx="15" cy="12" r="2" fill="var(--st-surface)"/><circle cx="8" cy="18" r="2" fill="var(--st-surface)"/></svg>
+      <span>Criar</span>
+    </button>
+    <button class="st-mobile-tab-btn" data-mobtab="cart">
+      <span class="st-mob-tab-ico-wrap">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 8h12l1 12H5L6 8Z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg>
+        <span id="st-mob-cart-badge" class="st-mob-badge hidden">0</span>
+      </span>
+      <span>Sacola</span>
+    </button>
+    <button class="st-mobile-tab-btn" data-mobtab="account">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="8" r="4"/></svg>
+      <span>Conta</span>
+    </button>
+  </nav>
+</section>
+
+<!-- ==================== PAINEL STUDIO INTERNO (EQUIPE / PROJETOS DIRETOS) ==================== -->
+<section id="view-dashboard" class="hidden">
   <header class="dash-header">
     <div class="brand">
       <div class="brand-mark">EG</div>
       <div>
-        <h1>EditorGráfica Pro</h1>
-        <p>Plataforma Profissional de Miolos de Agendas • CMYK • 15x21 cm (A5)</p>
+        <h1>EditorGráfica Studio</h1>
+        <p>Ambiente Técnico de Produção • CMYK • 15 × 21 cm (A5)</p>
       </div>
     </div>
     <div class="dash-actions">
-      <button id="btn-theme-dash" class="btn btn-secondary btn-sm" title="Alternar tema Claro/Escuro">☀️ Tema Claro</button>
-      <button id="btn-open-library-dash" class="btn btn-secondary btn-sm">📚 Biblioteca</button>
+      <button id="btn-back-store-dash" class="btn btn-secondary btn-sm">Voltar à Loja</button>
+      <button id="btn-theme-dash" class="btn btn-secondary btn-sm" title="Alternar tema Claro/Escuro">Tema Escuro</button>
+      <button id="btn-open-library-dash" class="btn btn-secondary btn-sm">Biblioteca</button>
       <button id="btn-new-agenda-dash" class="btn btn-primary btn-sm">+ Nova Agenda</button>
     </div>
   </header>
@@ -66,27 +171,43 @@
 
 <!-- ==================== WORKSPACE DO EDITOR GRÁFICO ==================== -->
 <section id="view-editor" class="hidden">
+  <!-- Faixa exclusiva do Cliente Personalizando Produto da Loja -->
+  <div id="customer-ed-bar" class="customer-ed-bar hidden">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <button id="btn-cust-back-store" class="st-btn st-btn-soft st-btn-xs">Voltar ao Produto</button>
+      <strong id="cust-ed-product-name">Personalizando Produto</strong>
+      <span id="cust-ed-version-badge" class="badge badge-accent">v1</span>
+      <select id="cust-ed-version-select" class="select" style="width:150px;height:26px;padding:1px 6px;font-size:11px;"></select>
+      <button id="btn-cust-save-version" class="btn btn-secondary btn-xs">Salvar Versão</button>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <span id="cust-ed-price-badge" style="font-weight:600;color:var(--st-gold);">R$ 0,00</span>
+      <button id="btn-cust-validate" class="btn btn-secondary btn-xs">Validar Pré-Impressão</button>
+      <button id="btn-cust-add-cart" class="st-btn st-btn-gold st-btn-xs">Finalizar &amp; Adicionar à Sacola</button>
+    </div>
+  </div>
+
   <!-- Barra Superior -->
   <header class="editor-topbar">
     <div class="topbar-left">
-      <button id="btn-back-dash" class="btn btn-secondary btn-sm">← Painel</button>
+      <button id="btn-back-dash" class="btn btn-secondary btn-sm">Painel</button>
       <input id="ed-project-name" class="project-title-input" type="text" title="Nome do Projeto" />
       <input id="ed-client-name" class="input" type="text" placeholder="Cliente" style="width:150px;height:30px;font-size:12px;" />
       <span id="save-status" class="badge badge-success">Salvo</span>
     </div>
 
     <div class="topbar-center">
-      <button id="btn-undo" class="btn btn-ghost btn-sm" title="Desfazer (Ctrl+Z)">↶ Desfazer</button>
-      <button id="btn-redo" class="btn btn-ghost btn-sm" title="Refazer (Ctrl+Y)">↷ Refazer</button>
-      <button id="btn-save-now" class="btn btn-secondary btn-sm">💾 Salvar</button>
+      <button id="btn-undo" class="btn btn-ghost btn-sm" title="Desfazer (Ctrl+Z)">Desfazer</button>
+      <button id="btn-redo" class="btn btn-ghost btn-sm" title="Refazer (Ctrl+Y)">Refazer</button>
+      <button id="btn-save-now" class="btn btn-secondary btn-sm">Salvar</button>
     </div>
 
     <div class="topbar-right">
-      <button id="btn-theme-ed" class="btn btn-secondary btn-sm" title="Alternar tema Claro/Escuro">☀️ Claro</button>
-      <button id="btn-open-library-ed" class="btn btn-secondary btn-sm">📚 Biblioteca</button>
-      <button id="btn-open-review" class="btn btn-secondary btn-sm">👁️ Conferência</button>
-      <button id="btn-open-batch" class="btn btn-secondary btn-sm">👥 Lote</button>
-      <button id="btn-open-export" class="btn btn-primary btn-sm">🖨️ Pré-Impressão &amp; PDF</button>
+      <button id="btn-theme-ed" class="btn btn-secondary btn-sm" title="Alternar tema Claro/Escuro">Escuro</button>
+      <button id="btn-open-library-ed" class="btn btn-secondary btn-sm">Biblioteca</button>
+      <button id="btn-open-review" class="btn btn-secondary btn-sm">Conferência</button>
+      <button id="btn-open-batch" class="btn btn-secondary btn-sm">Lote</button>
+      <button id="btn-open-export" class="btn btn-primary btn-sm">Pré-Impressão &amp; PDF</button>
     </div>
   </header>
 
@@ -94,17 +215,17 @@
   <div class="editor-subbar">
     <div class="toolbar-section">
       <div class="tool-group">
-        <button id="tool-select" class="tool-btn active" title="Ferramenta de Seleção (V)">↖ Selecionar</button>
+        <button id="tool-select" class="tool-btn active" title="Ferramenta de Seleção (V)">Selecionar</button>
         <button id="tool-add-phrase" class="tool-btn" title="Adicionar Frase/Texto">+ Frase</button>
         <button id="tool-add-image" class="tool-btn" title="Inserir Imagem/Logo">+ Imagem</button>
         <button id="tool-add-shape" class="tool-btn" title="Inserir Caixa/Forma">+ Forma</button>
       </div>
       <div class="tool-group">
-        <button id="tool-dup-el" class="tool-btn" title="Duplicar Elemento (Ctrl+D)">⧉ Duplicar</button>
-        <button id="tool-copy-el" class="tool-btn" title="Copiar (Ctrl+C)">📋 Copiar</button>
-        <button id="tool-paste-el" class="tool-btn" title="Colar (Ctrl+V)">📌 Colar</button>
-        <button id="tool-center-h" class="tool-btn" title="Centralizar Horizontalmente">↔ Centro H</button>
-        <button id="tool-del-el" class="tool-btn tool-btn-danger" title="Excluir (Del)">🗑 Excluir</button>
+        <button id="tool-dup-el" class="tool-btn" title="Duplicar Elemento (Ctrl+D)">Duplicar</button>
+        <button id="tool-copy-el" class="tool-btn" title="Copiar (Ctrl+C)">Copiar</button>
+        <button id="tool-paste-el" class="tool-btn" title="Colar (Ctrl+V)">Colar</button>
+        <button id="tool-center-h" class="tool-btn" title="Centralizar Horizontalmente">Centro H</button>
+        <button id="tool-del-el" class="tool-btn tool-btn-danger" title="Excluir (Del)">Excluir</button>
       </div>
       <div class="tool-group">
         <button id="tog-rulers" class="tool-btn active">Réguas</button>
@@ -129,12 +250,12 @@
       </div>
 
       <div style="display:flex;align-items:center;gap:4px;">
-        <button id="nav-first" class="btn btn-ghost btn-xs btn-icon" title="Primeira Página">⏮</button>
-        <button id="nav-prev" class="btn btn-ghost btn-xs btn-icon" title="Página Anterior">◀</button>
+        <button id="nav-first" class="btn btn-ghost btn-xs btn-icon" title="Primeira Página">«</button>
+        <button id="nav-prev" class="btn btn-ghost btn-xs btn-icon" title="Página Anterior">‹</button>
         <input id="nav-page-input" class="input" type="number" min="1" value="1" style="width:52px;height:26px;padding:2px 4px;text-align:center;font-size:11.5px;" />
         <span id="nav-page-total" class="text-muted" style="font-size:11.5px;">/ 0</span>
-        <button id="nav-next" class="btn btn-ghost btn-xs btn-icon" title="Próxima Página">▶</button>
-        <button id="nav-last" class="btn btn-ghost btn-xs btn-icon" title="Última Página">⏭</button>
+        <button id="nav-next" class="btn btn-ghost btn-xs btn-icon" title="Próxima Página">›</button>
+        <button id="nav-last" class="btn btn-ghost btn-xs btn-icon" title="Última Página">»</button>
       </div>
 
       <select id="nav-month-jump" class="select" style="width:112px;height:26px;padding:2px 6px;font-size:11.5px;">
@@ -149,13 +270,34 @@
     <!-- Painel Esquerdo: Módulos de Personalização -->
     <aside class="left-dock">
       <nav class="left-tabs">
-        <button class="tab-btn active" data-tab="formato"><span class="tab-ico">📐</span>Formato</button>
-        <button class="tab-btn" data-tab="datas"><span class="tab-ico">📅</span>Datas</button>
-        <button class="tab-btn" data-tab="cores"><span class="tab-ico">🎨</span>CMYK</button>
-        <button class="tab-btn" data-tab="pauta"><span class="tab-ico">📏</span>Pauta</button>
-        <button class="tab-btn" data-tab="rodape"><span class="tab-ico">🏷️</span>Rodapé</button>
-        <button class="tab-btn" data-tab="frases"><span class="tab-ico">✍️</span>Frases</button>
-        <button class="tab-btn" data-tab="especiais"><span class="tab-ico">📑</span>Especiais</button>
+        <button class="tab-btn active" data-tab="formato">
+          <span class="tab-ico"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 20 20 4M4 14v6h6M20 10V4h-6"/></svg></span>
+          <span>Formato</span>
+        </button>
+        <button class="tab-btn" data-tab="datas">
+          <span class="tab-ico"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg></span>
+          <span>Datas</span>
+        </button>
+        <button class="tab-btn" data-tab="cores">
+          <span class="tab-ico"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="8" r="1.5"/><circle cx="15.5" cy="13.5" r="1.5"/><circle cx="8.5" cy="13.5" r="1.5"/></svg></span>
+          <span>CMYK</span>
+        </button>
+        <button class="tab-btn" data-tab="pauta">
+          <span class="tab-ico"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 7h16M4 12h16M4 17h12"/></svg></span>
+          <span>Pauta</span>
+        </button>
+        <button class="tab-btn" data-tab="rodape">
+          <span class="tab-ico"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 16h16"/></svg></span>
+          <span>Rodapé</span>
+        </button>
+        <button class="tab-btn" data-tab="frases">
+          <span class="tab-ico"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 6h14M12 6v13M8 19h8"/></svg></span>
+          <span>Frases</span>
+        </button>
+        <button class="tab-btn" data-tab="especiais">
+          <span class="tab-ico"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="m12 3 9 4.5-9 4.5-9-4.5L12 3Z"/><path d="m3 12 9 4.5 9-4.5"/><path d="m3 16.5 9 4.5 9-4.5"/></svg></span>
+          <span>Especiais</span>
+        </button>
       </nav>
       <div class="left-content" id="left-tab-content"></div>
     </aside>
@@ -165,8 +307,8 @@
       <div class="canvas-status-strip">
         <div id="canvas-page-info">Carregando páginas...</div>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-          <span id="canvas-safety-alert" class="badge badge-danger hidden">⚠️ Elemento fora da área de segurança</span>
-          <span id="canvas-dim-info" class="badge">150 x 210 mm • Sangria 3mm • CMYK</span>
+          <span id="canvas-safety-alert" class="badge badge-danger hidden">Elemento fora da área de segurança</span>
+          <span id="canvas-dim-info" class="badge">150 × 210 mm • Sangria 3mm • CMYK</span>
         </div>
       </div>
       <div class="canvas-scroll">
@@ -230,11 +372,11 @@
     </div>
     <div class="modal-subbar">
       <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-        <button id="rev-first" class="btn btn-secondary btn-xs">Primeira Página</button>
-        <button id="rev-prev" class="btn btn-secondary btn-xs">◀ Anterior</button>
+        <button id="rev-first" class="btn btn-secondary btn-xs">Primeira</button>
+        <button id="rev-prev" class="btn btn-secondary btn-xs">Anterior</button>
         <span id="rev-page-lbl" class="badge">Página 1 / 1</span>
-        <button id="rev-next" class="btn btn-secondary btn-xs">Próxima ▶</button>
-        <button id="rev-last" class="btn btn-secondary btn-xs">Última Página</button>
+        <button id="rev-next" class="btn btn-secondary btn-xs">Próxima</button>
+        <button id="rev-last" class="btn btn-secondary btn-xs">Última</button>
       </div>
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
         <select id="rev-month-filter" class="select" style="width:155px;height:28px;padding:2px 6px;">
@@ -296,7 +438,7 @@
     </div>
     <div class="modal-foot">
       <button class="btn btn-secondary btn-sm" data-close-modal="modal-export">Fechar</button>
-      <button id="btn-run-export-download" class="btn btn-success btn-sm">⬇️ Gerar &amp; Baixar Arquivo de Impressão</button>
+      <button id="btn-run-export-download" class="btn btn-success btn-sm">Gerar &amp; Baixar Arquivo de Impressão</button>
     </div>
   </div>
 </div>
@@ -339,7 +481,7 @@
     </div>
     <div class="modal-foot">
       <button class="btn btn-secondary btn-sm" data-close-modal="modal-batch">Cancelar</button>
-      <button id="btn-run-batch-export" class="btn btn-primary btn-sm">📦 Gerar Pacote ZIP Personalizado</button>
+      <button id="btn-run-batch-export" class="btn btn-primary btn-sm">Gerar Pacote ZIP Personalizado</button>
     </div>
   </div>
 </div>
@@ -362,7 +504,7 @@
         </div>
         <div>
           <label class="btn btn-primary btn-xs" style="cursor:pointer;">
-            ⬆️ Enviar Logo/Gráfico (PNG, JPG, SVG, PDF)
+            Enviar Logo/Gráfico (PNG, JPG, SVG, PDF)
             <input id="lib-upload-input" type="file" accept=".png,.jpg,.jpeg,.svg,.pdf" class="hidden" />
           </label>
         </div>
@@ -375,8 +517,10 @@
   </div>
 </div>
 
+<div id="store-modal-root"></div>
 <div class="toast-container" id="toast-container"></div>
 
 <script type="module" src="/static/js/app.js"></script>
+<script type="module" src="/static/js/store_app.js"></script>
 </body>
 </html>

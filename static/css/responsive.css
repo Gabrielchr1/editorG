@@ -1,0 +1,369 @@
+/* ==================== RESPONSIVIDADE MULTI-BREAKPOINT & APP NATIVO MOBILE ==================== */
+
+@media (min-width: 1560px) {
+  :root {
+    --container-max: 1400px;
+  }
+}
+
+/* Telas de Notebook & Desktop Médio (1025px – 1366px) */
+@media (max-width: 1366px) {
+  .st-header-inner {
+    gap: 18px;
+  }
+  .st-nav-link {
+    padding: 0 10px;
+    font-size: 12.5px;
+  }
+  .st-products-grid {
+    gap: 18px;
+  }
+}
+
+@media (max-width: 1200px) {
+  .st-brand {
+    max-width: 208px;
+  }
+  .st-brand-name {
+    font-size: 19px;
+  }
+  .st-cat-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .st-products-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .st-products-grid.cols-3 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .left-dock { width: 320px; min-width: 280px; }
+  .right-dock { width: 280px; min-width: 250px; }
+}
+
+/* Tablet & Breakpoint de Menu Compacto (<= 1024px) */
+@media (max-width: 1024px) {
+  :root {
+    --gutter-x: 24px;
+  }
+  .st-header-inner {
+    grid-template-columns: minmax(0, 1fr) auto;
+    height: 68px;
+    gap: 12px;
+  }
+  .st-brand {
+    max-width: 260px;
+  }
+  .st-nav {
+    display: none;
+  }
+  .st-header-actions {
+    justify-content: flex-end;
+  }
+  .st-mobile-menu-btn {
+    display: inline-flex;
+  }
+  .st-hero {
+    padding: 40px 0 48px;
+  }
+  .st-hero-banner-section {
+    padding: 20px 0 26px;
+  }
+  .st-hero-grid,
+  .st-identity-grid,
+  .st-detail-grid,
+  .st-checkout-grid,
+  .st-editorial-two,
+  .st-faq-grid {
+    grid-template-columns: 1fr;
+    gap: 28px;
+  }
+  .st-testi-minimal-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .st-catalog-layout,
+  .st-account-shell {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+  .st-filter-box,
+  .st-side-menu {
+    position: static;
+  }
+  .st-benefits-grid,
+  .st-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .st-footer-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 28px;
+  }
+}
+
+@media (max-width: 880px) {
+  .editor-main { flex-direction: column; overflow-y: auto; }
+  .left-dock, .right-dock { width: 100%; max-height: 360px; border-right: none; border-left: none; }
+  .dash-header { padding: 12px 16px; flex-wrap: wrap; }
+  .dash-body { padding: 16px; }
+  .dash-stats { grid-template-columns: repeat(2, minmax(150px, 1fr)); }
+}
+
+/* ==================== EXPERIÊNCIA DE APP NATIVO NO MOBILE (<= 768px) ==================== */
+@media (max-width: 768px) {
+  :root {
+    --gutter-x: 16px;
+  }
+
+  /* Oculta faixa promocional no app mobile e usa App Bar translúcida fixa */
+  .st-announcement {
+    display: none;
+  }
+  .st-header {
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+  }
+  [data-theme="dark"] .st-header {
+    background: rgba(18, 24, 38, 0.92);
+  }
+  .st-header-inner {
+    height: 60px;
+    padding: 0 16px;
+  }
+  .st-brand {
+    max-width: calc(100vw - 175px);
+    gap: 10px;
+  }
+  .st-brand-monogram {
+    width: 34px;
+    height: 34px;
+    font-size: 16px;
+    border-radius: 8px;
+  }
+  .st-brand-name {
+    font-size: 18px;
+  }
+  .st-brand-sub {
+    font-size: 8.5px;
+    letter-spacing: 0.1em;
+  }
+
+  /* Na App Bar mobile, Conta & Sacola vivem na Tab Bar inferior; mantém Busca, Tema, Favoritos e Menu no topo */
+  #st-btn-account,
+  #st-btn-cart {
+    display: none;
+  }
+
+  /* Espaço inferior reservado para Tab Bar fixa de App Nativo */
+  #view-store {
+    padding-bottom: calc(68px + env(safe-area-inset-bottom));
+  }
+  .st-footer {
+    padding-bottom: 36px;
+  }
+
+  /* Tab Bar Nativa Fixa na Base */
+  .st-mobile-tabbar {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 120;
+    height: calc(64px + env(safe-area-inset-bottom));
+    padding-bottom: env(safe-area-inset-bottom);
+    background: rgba(255, 255, 255, 0.94);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-top: 1px solid var(--st-border);
+    box-shadow: 0 -6px 24px rgba(15, 28, 34, 0.08);
+  }
+  [data-theme="dark"] .st-mobile-tabbar {
+    background: rgba(11, 15, 25, 0.94);
+    box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.5);
+  }
+
+  .st-section {
+    padding: 36px 0;
+  }
+  .st-section-compact {
+    padding: 24px 0 42px;
+  }
+  .st-section-head {
+    margin-bottom: 20px;
+    gap: 12px;
+  }
+  .st-section-title {
+    font-size: 27px;
+  }
+
+  /* Hero compacto estilo vitrine de App */
+  .st-hero {
+    padding: 22px 0 28px;
+  }
+  .st-hero-banner-section {
+    padding: 14px 0 18px;
+  }
+  .st-hero-banner-wrap {
+    border-radius: 12px;
+  }
+  .st-hero-mobile-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 12px;
+  }
+  .st-hero-mobile-actions .st-btn {
+    width: 100%;
+    height: 42px;
+    padding: 0 12px;
+    font-size: 12.5px;
+    border-radius: 10px;
+  }
+  .st-hero-title {
+    font-size: 32px;
+    margin-bottom: 12px;
+  }
+  .st-hero-sub {
+    font-size: 14px;
+    margin-bottom: 20px;
+  }
+  .st-hero-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .st-hero-actions .st-btn {
+    width: 100%;
+    padding: 0 12px;
+    height: 44px;
+    border-radius: 10px;
+  }
+  .st-hero-meta {
+    margin-top: 20px;
+    padding-top: 16px;
+    gap: 14px 20px;
+  }
+  .st-hero-visual {
+    border-radius: 14px;
+    padding: 16px;
+  }
+
+  /* Carrossel horizontal nativo com scroll-snap para Coleções no Mobile */
+  .st-cat-grid {
+    display: flex;
+    gap: 12px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    padding: 2px 2px 10px;
+    scrollbar-width: none;
+  }
+  .st-cat-grid::-webkit-scrollbar {
+    display: none;
+  }
+  .st-cat-card {
+    flex: 0 0 68%;
+    max-width: 248px;
+    scroll-snap-align: start;
+    border-radius: 12px;
+  }
+
+  /* Grid nativo de 2 colunas para Produtos no Mobile */
+  .st-products-grid,
+  .st-products-grid.cols-3 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+  .st-product-card {
+    border-radius: 12px;
+  }
+  .st-product-thumb {
+    padding: 12px;
+    aspect-ratio: 1 / 1;
+  }
+  .st-tag-float {
+    top: 8px;
+    left: 8px;
+    padding: 3px 7px;
+    font-size: 9px;
+  }
+  .st-fav-float {
+    top: 8px;
+    right: 8px;
+    width: 30px;
+    height: 30px;
+  }
+  .st-product-body {
+    padding: 12px;
+    gap: 6px;
+  }
+  .st-product-cat {
+    font-size: 9.5px;
+    letter-spacing: 0.08em;
+  }
+  .st-product-title {
+    font-size: 16.5px;
+  }
+  .st-product-desc {
+    display: none;
+  }
+  .st-prod-kind-tag {
+    display: none;
+  }
+  .st-product-footer {
+    padding-top: 10px;
+    gap: 8px;
+  }
+  .st-product-actions.two-btns {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+  .st-product-actions .st-btn-xs {
+    height: 32px;
+    border-radius: 8px;
+  }
+
+  .st-identity-showcase {
+    padding: 16px;
+    border-radius: 14px;
+  }
+  .st-panel-card {
+    padding: 16px;
+    border-radius: 12px;
+  }
+  .st-testi-minimal-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .st-testi-card {
+    padding: 13px 14px;
+  }
+  .st-faq-grid {
+    gap: 8px;
+  }
+  .st-steps-bar {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+}
+
+/* Telas Muito Estreitas (360px – 410px) */
+@media (max-width: 410px) {
+  .st-brand-sub {
+    display: none;
+  }
+  .st-hero-actions {
+    grid-template-columns: 1fr;
+  }
+  .st-products-grid,
+  .st-products-grid.cols-3 {
+    gap: 10px;
+  }
+  .st-benefits-grid,
+  .st-kpi-grid,
+  .st-footer-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+}

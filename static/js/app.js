@@ -1,5 +1,6 @@
 import { MONTH_NAMES_PT, cmykToHex, escXml, getTrimDimsMm, hexToCmyk } from "./calendar_client.js";
 import { CanvasEditorController, isElementOutOfSafety } from "./canvas_editor.js";
+import { icon } from "./core/icons.js";
 import {
   downloadBatchExport,
   downloadExportFile,
@@ -35,6 +36,7 @@ const state = {
   batchRecipients: [],
   libraryCategoryFilter: "all",
   libraryInsertMode: "canvas", // "canvas" | "footer"
+  customerMode: null, // { projectId, productId, productName, variationId, selectedOptions, allowedTools, toolLabels, pricing, versions, returnCallback }
 };
 
 let canvasCtrl = null;
@@ -45,19 +47,28 @@ function applyTheme(theme) {
   const normalized = theme === "light" ? "light" : "dark";
   document.documentElement.setAttribute("data-theme", normalized);
   localStorage.setItem("eg_theme", normalized);
+  const storeBtn = document.getElementById("btn-theme-store");
   const dashBtn = document.getElementById("btn-theme-dash");
   const edBtn = document.getElementById("btn-theme-ed");
   if (normalized === "dark") {
-    if (dashBtn) dashBtn.textContent = "☀️ Tema Claro";
-    if (edBtn) edBtn.textContent = "☀️ Claro";
+    if (storeBtn) {
+      storeBtn.innerHTML = icon("sun", 16);
+      storeBtn.title = "Alternar para tema claro";
+    }
+    if (dashBtn) dashBtn.textContent = "Tema Claro";
+    if (edBtn) edBtn.textContent = "Claro";
   } else {
-    if (dashBtn) dashBtn.textContent = "🌙 Tema Escuro";
-    if (edBtn) edBtn.textContent = "🌙 Escuro";
+    if (storeBtn) {
+      storeBtn.innerHTML = icon("moon", 16);
+      storeBtn.title = "Alternar para tema escuro";
+    }
+    if (dashBtn) dashBtn.textContent = "Tema Escuro";
+    if (edBtn) edBtn.textContent = "Escuro";
   }
 }
 
 function initTheme() {
-  const saved = localStorage.getItem("eg_theme") || "dark";
+  const saved = localStorage.getItem("eg_theme") || "light";
   applyTheme(saved);
 }
 
@@ -237,15 +248,117 @@ function markDirtyAndScheduleSave() {
   }, 1100);
 }
 
-async function saveCurrentProject(silent = false) {
-  if (!state.currentProject || !state.config) return;
+function getAuthHeaders() {
+  const token = localStorage.getItem("eg_token");
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+function formatBRL(v) {
+  return Number(v || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+function hasToolPermission(toolKey) {
+  if (!state.customerMode) return true;
+  return Boolean(state.customerMode.allowedTools?.[toolKey]);
+}
+
+function updateCustomerBarUI() {
+  const bar = document.getElementById("customer-ed-bar");
+  if (!bar) return;
+  if (!state.customerMode) {
+    bar.classList.add("hidden");
+    return;
+  }
+  bar.classList.remove("hidden");
+  const cm = state.customerMode;
+  const prodEl = document.getElementById("cust-ed-product-name");
+  if (prodEl) prodEl.textContent = cm.productName || "Personalizando Produto";
+  const ver = state.currentProject?.version || 1;
+  const verBadge = document.getElementById("cust-ed-version-badge");
+  if (verBadge) verBadge.textContent = `v${ver}`;
+  const priceEl = document.getElementById("cust-ed-price-badge");
+  if (priceEl && cm.pricing) priceEl.textContent = formatBRL(cm.pricing.unit_price ?? cm.pricing.total_price ?? 0);
+
+  const verSel = document.getElementById("cust-ed-version-select");
+  if (verSel) {
+    const versions = Array.isArray(cm.versions) && cm.versions.length
+      ? cm.versions
+      : [{ version_number: ver, note: "Versão atual" }];
+    verSel.innerHTML = versions
+      .map((v) => {
+        const vn = v.version_number ?? v.version ?? ver;
+        return `<option value="${vn}" ${Number(vn) === Number(ver) ? "selected" : ""}>v${vn}${v.note ? " — " + escXml(String(v.note).slice(0, 20)) : ""}</option>`;
+      })
+      .join("");
+  }
+}
+
+async function saveCurrentProject(silent = false, options = {}) {
+  if (!state.currentProject || !state.config) return true;
   setSaveBadge("saving");
   try {
+    const projName = document.getElementById("ed-project-name").value.trim() || state.currentProject.name;
+    if (state.customerMode) {
+      const res = await fetch(`/api/customizer/projects/${state.customerMode.projectId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        body: JSON.stringify({
+          name: projName,
+          config: state.config,
+          selected_options: state.customerMode.selectedOptions || {},
+          create_version: Boolean(options.createVersion),
+          version_note: options.versionNote || "",
+        }),
+      });
+      if (!res.ok) {
+        let msg = "Erro ao salvar personalização.";
+        try {
+          const errJson = await res.json();
+          msg = errJson.detail || msg;
+        } catch {
+          msg = await res.text();
+        }
+        setSaveBadge("error");
+        toast(msg, "error");
+        if (res.status === 403) {
+          const reloadRes = await fetch(`/api/customizer/projects/${state.customerMode.projectId}`, {
+            headers: { ...getAuthHeaders() },
+          });
+          if (reloadRes.ok) {
+            const fresh = await reloadRes.json();
+            state.currentProject = fresh.project;
+            state.config = fresh.project.config;
+            renderLeftTab();
+            renderRightPanel();
+            await refreshCalendarAndRender(true);
+          }
+        }
+        return false;
+      }
+      const data = await res.json();
+      if (state.currentProject) {
+        state.currentProject.version = data.version ?? state.currentProject.version;
+        state.currentProject.page_count = data.page_count ?? state.currentProject.page_count;
+      }
+      if (data.pricing) state.customerMode.pricing = data.pricing;
+      if (options.createVersion && data.version) {
+        state.customerMode.versions = [
+          { version_number: data.version, note: options.versionNote || `Versão v${data.version}` },
+          ...(state.customerMode.versions || []).filter((x) => Number(x.version_number ?? x.version) !== Number(data.version)),
+        ];
+      }
+      state.isDirty = false;
+      setSaveBadge("saved");
+      updateCustomerBarUI();
+      if (!silent) toast(options.createVersion ? `Versão v${data.version} salva!` : "Personalização salva automaticamente.", "success");
+      return true;
+    }
+
     const res = await fetch(`/api/projects/${state.currentProject.id}`, {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...getAuthHeaders() },
       body: JSON.stringify({
-        name: document.getElementById("ed-project-name").value.trim() || state.currentProject.name,
+        name: projName,
         client_name: document.getElementById("ed-client-name").value.trim(),
         config: state.config,
       }),
@@ -256,9 +369,11 @@ async function saveCurrentProject(silent = false) {
     state.isDirty = false;
     setSaveBadge("saved");
     if (!silent) toast("Projeto salvo com sucesso.", "success");
+    return true;
   } catch (err) {
     setSaveBadge("error");
     toast(`Erro ao salvar: ${err.message}`, "error");
+    return false;
   }
 }
 
@@ -289,7 +404,7 @@ function updateStageOverlaysAndStatus() {
   const alertBadge = document.getElementById("canvas-safety-alert");
   alertBadge.classList.toggle("hidden", outProblems.length === 0);
   if (outProblems.length > 0) {
-    alertBadge.textContent = `⚠️ ${outProblems.length} elemento(s) fora da área de segurança`;
+    alertBadge.textContent = `${outProblems.length} elemento(s) fora da área de segurança`;
   }
 
   // Atualiza dropdown de meses
@@ -317,6 +432,7 @@ function renderStageOnly() {
     showRulers: state.showRulers,
     spreadMode: state.spreadMode,
     selectedId: state.selectedElementId,
+    permissions: state.customerMode ? state.customerMode.allowedTools : null,
   });
 }
 
@@ -417,10 +533,10 @@ function renderDashboardProjects() {
           <div class="cmyk-dots">${swatches}<span style="font-size:11px;color:var(--text-muted);margin-left:4px;">${escXml(p.summary?.palette_name || "CMYK")}</span></div>
         </div>
         <div class="project-card-actions">
-          <button class="btn btn-primary btn-sm" style="flex:1;" data-act="open" data-id="${p.id}">✏️ Abrir no Editor</button>
-          <button class="btn btn-secondary btn-sm" data-act="duplicate" data-id="${p.id}" title="Duplicar Projeto">⧉ Duplicar</button>
-          <button class="btn btn-secondary btn-sm btn-icon" data-act="export" data-id="${p.id}" title="Exportar PDF">🖨️</button>
-          <button class="btn btn-danger btn-sm btn-icon" data-act="delete" data-id="${p.id}" title="Excluir Projeto">🗑</button>
+          <button class="btn btn-primary btn-sm" style="flex:1;" data-act="open" data-id="${p.id}">${icon("edit", 13)} Abrir no Editor</button>
+          <button class="btn btn-secondary btn-sm" data-act="duplicate" data-id="${p.id}" title="Duplicar Projeto">Duplicar</button>
+          <button class="btn btn-secondary btn-sm btn-icon" data-act="export" data-id="${p.id}" title="Exportar PDF">${icon("printer", 14)}</button>
+          <button class="btn btn-danger btn-sm btn-icon" data-act="delete" data-id="${p.id}" title="Excluir Projeto">${icon("trash", 14)}</button>
         </div>
       </article>
     `;
@@ -457,8 +573,217 @@ function renderDashboardProjects() {
   });
 }
 
+function _lockCtrl(node, locked, tip = "Ferramenta bloqueada neste produto pelo administrador") {
+  if (!node || !locked) return;
+  if ("disabled" in node) node.disabled = true;
+  node.classList.add("eg-tool-locked");
+  node.style.opacity = "0.45";
+  node.style.pointerEvents = "none";
+  node.title = tip;
+}
+
+function applyDomToolPermissions(rootEl) {
+  if (!state.customerMode || !rootEl) return;
+  const tools = state.customerMode.allowedTools || {};
+
+  // 1. Texto / Frases
+  if (!tools.edit_text) {
+    [
+      '[data-bind="special_pages.cover_title"]',
+      '[data-bind="special_pages.cover_subtitle"]',
+      '[data-bind="footer.company_name"]',
+      '[data-bind="footer.professional_name"]',
+      '[data-bind="footer.extra_text"]',
+      "#btn-tab-add-phrase",
+      "#btn-tab-gen-12-phrases",
+      "#ins-text",
+      ".ins-var-btn",
+    ].forEach((sel) => rootEl.querySelectorAll(sel).forEach((el) => _lockCtrl(el, true)));
+  }
+
+  // 2. Cores CMYK
+  if (!tools.edit_colors) {
+    rootEl
+      .querySelectorAll('.cmyk-card[data-cmyk-group] input, .cmyk-card[data-cmyk-group] button, [data-pal-idx], #btn-save-palette, [data-bind="ruling.line_color"]')
+      .forEach((el) => _lockCtrl(el, true));
+  }
+
+  // 3. Fontes
+  if (!tools.edit_fonts) {
+    [
+      '[data-bind="export.header_font_family"]',
+      '[data-bind="export.body_font_family"]',
+      '[data-bind="footer.font_family"]',
+      '[data-bind="footer.bold"]',
+      '[data-bind="footer.italic"]',
+      "#ins-font",
+      "#ins-bold",
+      "#ins-italic",
+      "#ins-under",
+    ].forEach((sel) => rootEl.querySelectorAll(sel).forEach((el) => _lockCtrl(el, true)));
+  }
+
+  // 4. Tamanho da fonte
+  if (!tools.edit_font_size) {
+    rootEl.querySelectorAll('[data-bind="footer.font_size_pt"], #ins-fsize').forEach((el) => _lockCtrl(el, true));
+  }
+
+  // 5. Imagens / Logotipo
+  if (!tools.add_images) {
+    rootEl.querySelectorAll("#btn-tab-add-img, #footer-logo-upload, #btn-pick-logo-lib").forEach((el) => {
+      _lockCtrl(el, true);
+      if (el.id === "footer-logo-upload" && el.parentElement) _lockCtrl(el.parentElement, true);
+    });
+  }
+
+  // 6. Remover elementos / logo
+  if (!tools.remove_elements) {
+    rootEl.querySelectorAll("#ins-del, [data-el-del], #btn-clear-logo").forEach((el) => _lockCtrl(el, true));
+  }
+
+  // 7. Mover elementos
+  if (!tools.move_elements) {
+    rootEl.querySelectorAll("#ins-x, #ins-y").forEach((el) => _lockCtrl(el, true));
+  }
+
+  // 8. Redimensionar elementos & logo
+  if (!tools.resize_elements) {
+    rootEl
+      .querySelectorAll('#ins-w, #ins-h, [data-bind="footer.logo_width_mm"], [data-bind="footer.logo_height_mm"]')
+      .forEach((el) => _lockCtrl(el, true));
+  }
+
+  // 9. Rotacionar elementos
+  if (!tools.rotate_elements) {
+    rootEl.querySelectorAll("#ins-rot").forEach((el) => _lockCtrl(el, true));
+  }
+
+  // 10 & 12. Criar / Excluir páginas especiais
+  rootEl.querySelectorAll('[data-bind^="special_pages."]').forEach((el) => {
+    const bind = el.dataset.bind;
+    if (el.type === "checkbox") {
+      if (el.checked && !tools.delete_pages) _lockCtrl(el, true, "Exclusão de páginas bloqueada neste produto");
+      if (!el.checked && !tools.create_pages) _lockCtrl(el, true, "Criação de páginas bloqueada neste produto");
+    } else if (bind === "special_pages.notes_end_pages") {
+      if (!tools.create_pages && !tools.delete_pages) _lockCtrl(el, true);
+      else {
+        const cur = Number(el.value || 0);
+        if (!tools.delete_pages) el.min = String(cur);
+        if (!tools.create_pages) el.max = String(cur);
+      }
+    }
+  });
+
+  // 11. Duplicar páginas / elementos
+  if (!tools.duplicate_pages) {
+    rootEl.querySelectorAll("#ins-dup, #ins-copy, [data-el-dup]").forEach((el) => _lockCtrl(el, true));
+  }
+
+  // 13. Margens e segurança
+  if (!tools.modify_margins) {
+    [
+      '[data-bind="page_setup.margin_top_mm"]',
+      '[data-bind="page_setup.margin_bottom_mm"]',
+      '[data-bind="page_setup.margin_outer_mm"]',
+      '[data-bind="page_setup.safety_margin_mm"]',
+    ].forEach((sel) => rootEl.querySelectorAll(sel).forEach((el) => _lockCtrl(el, true)));
+  }
+
+  // 14. Sangria
+  if (!tools.modify_bleed) {
+    rootEl.querySelectorAll('[data-bind="page_setup.bleed_mm"]').forEach((el) => _lockCtrl(el, true));
+  }
+
+  // 15. Encadernação
+  if (!tools.modify_binding) {
+    rootEl.querySelectorAll('[data-bind="page_setup.margin_inner_mm"], [data-bind="page_setup.mirror_margins"]').forEach((el) => _lockCtrl(el, true));
+  }
+
+  // 16. Dimensões & orientação
+  if (!tools.modify_dimensions) {
+    rootEl.querySelectorAll('#fmt-preset, [data-bind="page_setup.width_mm"], [data-bind="page_setup.height_mm"], [data-bind="page_setup.orientation"]').forEach((el) => _lockCtrl(el, true));
+  }
+
+  // 17. Calendário & disposição
+  if (!tools.modify_calendar) {
+    rootEl.querySelectorAll('#cal-week-start, [data-bind^="calendar."]').forEach((el) => {
+      const bind = el.dataset?.bind || "";
+      if (bind === "calendar.highlight_national_holidays" || bind === "calendar.state_code") return;
+      _lockCtrl(el, true);
+    });
+  }
+
+  // 18. Feriados & datas comemorativas
+  if (!tools.modify_holidays) {
+    rootEl.querySelectorAll('[data-bind="calendar.highlight_national_holidays"], [data-bind="calendar.state_code"], #ch-date, #ch-type, #ch-name, #btn-add-holiday, [data-del-hol]').forEach((el) => _lockCtrl(el, true));
+  }
+
+  // 19. Elementos decorativos e pautas
+  if (!tools.add_decorative) {
+    rootEl.querySelectorAll('[data-bind^="ruling."], #ruling-interval').forEach((el) => {
+      if (el.dataset?.bind === "ruling.line_color") return;
+      _lockCtrl(el, true);
+    });
+  }
+}
+
+function applyCustomerToolRestrictions() {
+  const isCust = Boolean(state.customerMode);
+  updateCustomerBarUI();
+
+  const backDash = document.getElementById("btn-back-dash");
+  const clientInp = document.getElementById("ed-client-name");
+  const batchBtn = document.getElementById("btn-open-batch");
+  const exportBtn = document.getElementById("btn-open-export");
+  const reviewBtn = document.getElementById("btn-open-review");
+
+  if (backDash) backDash.classList.toggle("hidden", isCust);
+  if (clientInp) clientInp.classList.toggle("hidden", isCust);
+  if (batchBtn) batchBtn.classList.toggle("hidden", isCust);
+
+  if (exportBtn) {
+    exportBtn.classList.toggle("hidden", isCust && !hasToolPermission("download_final"));
+  }
+  if (reviewBtn) {
+    reviewBtn.disabled = isCust && !hasToolPermission("export_preview");
+    reviewBtn.style.opacity = reviewBtn.disabled ? "0.45" : "";
+  }
+
+  const toolMap = {
+    "tool-add-phrase": "edit_text",
+    "tool-add-image": "add_images",
+    "tool-add-shape": "add_decorative",
+    "tool-dup-el": "duplicate_pages",
+    "tool-copy-el": "duplicate_pages",
+    "tool-paste-el": "duplicate_pages",
+    "tool-center-h": "move_elements",
+    "tool-del-el": "remove_elements",
+  };
+
+  Object.entries(toolMap).forEach(([btnId, permKey]) => {
+    const btn = document.getElementById(btnId);
+    if (!btn) return;
+    const allowed = !isCust || hasToolPermission(permKey);
+    btn.disabled = !allowed;
+    btn.style.opacity = allowed ? "" : "0.4";
+    btn.style.pointerEvents = allowed ? "" : "none";
+    if (!allowed) btn.title = "Ferramenta bloqueada neste produto pelo administrador";
+  });
+
+  // Marca visivelmente a aba de Cores se bloqueada
+  const colorTabBtn = document.querySelector('.left-tabs .tab-btn[data-tab="cores"]');
+  if (colorTabBtn) {
+    const allowed = !isCust || hasToolPermission("edit_colors");
+    colorTabBtn.style.opacity = allowed ? "" : "0.55";
+  }
+
+  applyDomToolPermissions(document.getElementById("left-tab-content"));
+  applyDomToolPermissions(document.getElementById("right-panel"));
+}
+
 async function openProjectInEditor(projectId) {
-  const res = await fetch(`/api/projects/${projectId}`);
+  state.customerMode = null;
+  const res = await fetch(`/api/projects/${projectId}`, { headers: { ...getAuthHeaders() } });
   if (!res.ok) {
     toast("Projeto não encontrado.", "error");
     return;
@@ -476,13 +801,89 @@ async function openProjectInEditor(projectId) {
   document.getElementById("ed-project-name").value = proj.name;
   document.getElementById("ed-client-name").value = proj.client_name || "";
 
+  document.getElementById("view-store")?.classList.add("hidden");
   document.getElementById("view-dashboard").classList.add("hidden");
   document.getElementById("view-editor").classList.remove("hidden");
 
+  applyCustomerToolRestrictions();
   syncToolbarToggles();
   renderLeftTab();
   await refreshCalendarAndRender(true);
   renderRightPanel();
+}
+
+async function openCustomerProjectInEditor(projectId, opts = {}) {
+  const token = localStorage.getItem("eg_token");
+  if (!token) {
+    toast("Faça login para personalizar este produto.", "warning");
+    return false;
+  }
+  const res = await fetch(`/api/customizer/projects/${projectId}`, {
+    headers: { ...getAuthHeaders() },
+  });
+  if (!res.ok) {
+    toast("Não foi possível carregar sua personalização.", "error");
+    return false;
+  }
+  const data = await res.json();
+  state.customerMode = {
+    projectId: data.project.id,
+    productId: data.product?.id || data.project.product_id || opts.productId || null,
+    productName: opts.productName || data.product?.name || data.project.name,
+    variationId: opts.variationId || null,
+    selectedOptions: opts.selectedOptions || data.project.customization_options || {},
+    allowedTools: data.allowed_tools || {},
+    toolLabels: data.tool_labels || {},
+    pricing: data.pricing || null,
+    versions: data.versions || [],
+    returnCallback: typeof opts.onReturn === "function" ? opts.onReturn : null,
+  };
+  state.currentProject = data.project;
+  state.config = data.project.config;
+  state.selectedElementId = null;
+  state.currentPageIdx = 0;
+  state.undoStack = [];
+  state.redoStack = [];
+  state.isDirty = false;
+  setSaveBadge("saved");
+
+  document.getElementById("ed-project-name").value = data.project.name;
+  document.getElementById("ed-client-name").value = data.project.client_name || "";
+
+  document.getElementById("view-store")?.classList.add("hidden");
+  document.getElementById("view-dashboard")?.classList.add("hidden");
+  document.getElementById("view-editor").classList.remove("hidden");
+
+  applyCustomerToolRestrictions();
+  syncToolbarToggles();
+  renderLeftTab();
+  await refreshCalendarAndRender(true);
+  renderRightPanel();
+  return true;
+}
+
+async function closeCustomerEditor(targetRoute = null) {
+  if (state.isDirty) await saveCurrentProject(true);
+  const cm = state.customerMode;
+  state.customerMode = null;
+  updateCustomerBarUI();
+  document.getElementById("view-editor").classList.add("hidden");
+  document.getElementById("view-dashboard").classList.add("hidden");
+  document.getElementById("view-store")?.classList.remove("hidden");
+  if (cm?.returnCallback) {
+    cm.returnCallback({ targetRoute, projectId: cm.projectId, pricing: cm.pricing });
+  } else {
+    window.dispatchEvent(new CustomEvent("eg-store-return", { detail: { targetRoute, projectId: cm?.projectId } }));
+  }
+}
+
+async function openStudioDashboard() {
+  state.customerMode = null;
+  updateCustomerBarUI();
+  document.getElementById("view-store")?.classList.add("hidden");
+  document.getElementById("view-editor")?.classList.add("hidden");
+  document.getElementById("view-dashboard")?.classList.remove("hidden");
+  await loadProjects();
 }
 
 function syncToolbarToggles() {
@@ -509,6 +910,8 @@ function renderLeftTab() {
   else if (tab === "rodape") renderTabRodape(container);
   else if (tab === "frases") renderTabFrases(container);
   else if (tab === "especiais") renderTabEspeciais(container);
+
+  applyDomToolPermissions(container);
 }
 
 function bindConfigInputs(root, onStructureChange, onVisualOnlyChange) {
@@ -779,7 +1182,7 @@ function renderTabCores(el) {
   el.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
       <span class="badge badge-accent">Cartela Gráfica 100% CMYK</span>
-      <button id="btn-save-palette" class="btn btn-secondary btn-xs">💾 Salvar Paleta Atual</button>
+      <button id="btn-save-palette" class="btn btn-secondary btn-xs">Salvar Paleta Atual</button>
     </div>
 
     <div class="section-title">Paletas Predefinidas CMYK</div>
@@ -975,10 +1378,10 @@ function renderTabRodape(el) {
     <div class="cmyk-card">
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
         <label class="btn btn-primary btn-xs" style="cursor:pointer;">
-          ⬆️ Enviar Logo (PNG/JPG/SVG/PDF)
+          Enviar Logo (PNG/JPG/SVG/PDF)
           <input id="footer-logo-upload" type="file" accept=".png,.jpg,.jpeg,.svg,.pdf" class="hidden" />
         </label>
-        <button id="btn-pick-logo-lib" class="btn btn-secondary btn-xs">📚 Da Biblioteca</button>
+        <button id="btn-pick-logo-lib" class="btn btn-secondary btn-xs">Da Biblioteca</button>
         ${f.logo_url ? `<button id="btn-clear-logo" class="btn btn-danger btn-xs">Remover</button>` : ""}
       </div>
       ${f.logo_url ? `<div class="text-accent" style="font-size:11px;word-break:break-all;">Ativo: ${escXml(f.logo_url)}</div>` : `<div class="text-dim" style="font-size:11px;">Nenhum logotipo selecionado</div>`}
@@ -1043,7 +1446,7 @@ function renderTabRodape(el) {
     </div>
     ${f.apply_to === "specific_pages" ? `<div class="field"><label>Páginas (ex: 2, 5, 10-30)</label><input class="input" type="text" value="${escXml(f.specific_pages)}" data-bind="footer.specific_pages" data-struct="1" /></div>` : ""}
 
-    <button id="btn-footer-apply-all" class="btn btn-secondary btn-sm" style="width:100%;">✨ Aplicar Automaticamente em Todas as Páginas</button>
+    <button id="btn-footer-apply-all" class="btn btn-secondary btn-sm" style="width:100%;">Aplicar Automaticamente em Todas as Páginas</button>
   `;
 
   el.querySelector("#footer-logo-upload").addEventListener("change", async (ev) => {
@@ -1108,10 +1511,10 @@ function renderTabFrases(el) {
     <div class="section-title">Frases, Textos &amp; Elementos Globais</div>
     <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px;">
       <button id="btn-tab-add-phrase" class="btn btn-primary btn-sm">+ Inserir Nova Frase no Canvas</button>
-      <button id="btn-tab-gen-12-phrases" class="btn btn-secondary btn-sm">✨ Gerar 12 Frases Motivacionais (Jan–Dez)</button>
+      <button id="btn-tab-gen-12-phrases" class="btn btn-secondary btn-sm">Gerar 12 Frases Motivacionais (Jan–Dez)</button>
       <div class="grid-2">
         <button id="btn-tab-add-img" class="btn btn-secondary btn-xs">+ Inserir Imagem</button>
-        <button id="btn-tab-open-lib" class="btn btn-secondary btn-xs">📚 Biblioteca</button>
+        <button id="btn-tab-open-lib" class="btn btn-secondary btn-xs">Biblioteca</button>
       </div>
     </div>
 
@@ -1121,7 +1524,7 @@ function renderTabFrases(el) {
         <div class="list-card ${item.id === state.selectedElementId ? "active" : ""}" data-select-el="${item.id}" style="cursor:pointer;">
           <div style="min-width:0;flex:1;">
             <div style="font-weight:600;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-              ${item.type === "image" ? "🖼️" : (item.type === "shape" ? "◻️" : "✍️")}
+              ${item.type === "image" ? "[IMG]" : (item.type === "shape" ? "[FORMA]" : "[TXT]")}
               ${escXml(item.label || item.text || "Elemento")}
             </div>
             <div style="font-size:10.5px;color:var(--text-muted);margin-top:2px;">
@@ -1364,14 +1767,14 @@ function renderRightPanel() {
 
     <div class="section-title">Ações do Elemento</div>
     <div class="grid-2" style="margin-bottom:6px;">
-      <button id="ins-dup" class="btn btn-secondary btn-xs">⧉ Duplicar</button>
-      <button id="ins-copy" class="btn btn-secondary btn-xs">📋 Copiar</button>
-      <button id="ins-front" class="btn btn-secondary btn-xs">⬆️ Trazer Frente</button>
-      <button id="ins-back" class="btn btn-secondary btn-xs">⬇️ Enviar Trás</button>
+      <button id="ins-dup" class="btn btn-secondary btn-xs">Duplicar</button>
+      <button id="ins-copy" class="btn btn-secondary btn-xs">Copiar</button>
+      <button id="ins-front" class="btn btn-secondary btn-xs">Trazer Frente</button>
+      <button id="ins-back" class="btn btn-secondary btn-xs">Enviar Trás</button>
     </div>
     <div class="grid-2">
-      <button id="ins-save-lib" class="btn btn-secondary btn-xs">📚 Salvar Biblioteca</button>
-      <button id="ins-del" class="btn btn-danger btn-xs">🗑 Excluir</button>
+      <button id="ins-save-lib" class="btn btn-secondary btn-xs">Salvar Biblioteca</button>
+      <button id="ins-del" class="btn btn-danger btn-xs">${icon("trash", 12)} Excluir</button>
     </div>
   `;
 
@@ -1492,12 +1895,18 @@ function renderRightPanel() {
       toast("Salvo na Biblioteca de Elementos!", "success");
     }
   });
+
+  applyDomToolPermissions(panel);
 }
 
 // ---------------- ELEMENT ACTIONS ----------------
 
 function addNewPhraseElement(customText = "Digite sua frase personalizada aqui") {
   if (!state.config) return;
+  if (!hasToolPermission("edit_text")) {
+    toast("Inserção/edição de textos bloqueada neste produto.", "warning");
+    return;
+  }
   pushUndoSnapshot();
   const { w } = getTrimDimsMm(state.config);
   const newEl = {
@@ -1541,6 +1950,10 @@ function addNewPhraseElement(customText = "Digite sua frase personalizada aqui")
 
 function addNewShapeElement() {
   if (!state.config) return;
+  if (!hasToolPermission("add_decorative")) {
+    toast("Inserção de formas decorativas bloqueada neste produto.", "warning");
+    return;
+  }
   pushUndoSnapshot();
   const newEl = {
     id: "el_" + Math.random().toString(36).slice(2, 10),
@@ -1583,6 +1996,10 @@ function addNewShapeElement() {
 
 function addImageElement(url, label = "Imagem / Símbolo") {
   if (!state.config) return;
+  if (!hasToolPermission("add_images")) {
+    toast("Inserção de imagens bloqueada neste produto.", "warning");
+    return;
+  }
   pushUndoSnapshot();
   const newEl = {
     id: "el_" + Math.random().toString(36).slice(2, 10),
@@ -1624,6 +2041,10 @@ function addImageElement(url, label = "Imagem / Símbolo") {
 }
 
 function duplicateElementById(id) {
+  if (!hasToolPermission("duplicate_pages")) {
+    toast("Duplicação de elementos bloqueada neste produto.", "warning");
+    return;
+  }
   const orig = (state.config?.elements || []).find((e) => e.id === id);
   if (!orig) return;
   pushUndoSnapshot();
@@ -1643,6 +2064,10 @@ function duplicateElementById(id) {
 
 function deleteElementById(id) {
   if (!state.config) return;
+  if (!hasToolPermission("remove_elements")) {
+    toast("Remoção de elementos bloqueada neste produto.", "warning");
+    return;
+  }
   pushUndoSnapshot();
   state.config.elements = state.config.elements.filter((e) => e.id !== id);
   if (state.selectedElementId === id) state.selectedElementId = null;
@@ -1693,6 +2118,10 @@ async function uploadAssetFile(file, category = "logo") {
 }
 
 function triggerCanvasImageUpload() {
+  if (!hasToolPermission("add_images")) {
+    toast("Inserção de imagens bloqueada neste produto.", "warning");
+    return;
+  }
   document.getElementById("hidden-canvas-img-input").click();
 }
 
@@ -1724,6 +2153,10 @@ function openNewProjectModal() {
 
 function openReviewModal() {
   if (!state.generated || !state.config) return;
+  if (state.customerMode && !hasToolPermission("export_preview")) {
+    toast("Pré-visualização bloqueada para este produto.", "warning");
+    return;
+  }
   const mSel = document.getElementById("rev-month-filter");
   let opts = `<option value="all">Todos os Meses</option><option value="special">Páginas Especiais</option>`;
   for (let m = 1; m <= 12; m++) opts += `<option value="${m}">${MONTH_NAMES_PT[m]}</option>`;
@@ -1760,7 +2193,18 @@ async function refreshReviewModalContent() {
       pdfBlobUrl: null,
     });
     try {
-      state.reviewPdfUrl = await fetchPreviewPdfUrl(state.currentProject.id, state.config, curPage.page_number);
+      if (state.customerMode) {
+        await saveCurrentProject(true);
+        const rPdf = await fetch(`/api/customizer/projects/${state.customerMode.projectId}/preview-pdf?page_number=${curPage.page_number}`, {
+          method: "POST",
+          headers: { ...getAuthHeaders() },
+        });
+        if (!rPdf.ok) throw new Error(await rPdf.text());
+        const blob = await rPdf.blob();
+        state.reviewPdfUrl = URL.createObjectURL(blob);
+      } else {
+        state.reviewPdfUrl = await fetchPreviewPdfUrl(state.currentProject.id, state.config, curPage.page_number);
+      }
     } catch (err) {
       toast(`Erro ao gerar preview PDF: ${err.message}`, "error");
     }
@@ -1786,6 +2230,8 @@ async function refreshReviewModalContent() {
 
 async function openExportModal() {
   if (!state.currentProject || !state.config) return;
+  const dlBtn = document.getElementById("btn-run-export-download");
+  if (dlBtn) dlBtn.classList.toggle("hidden", state.customerMode && !hasToolPermission("download_final"));
   document.getElementById("exp-mirror").checked = Boolean(state.config.page_setup.mirror_margins);
   document.getElementById("exp-bleed").checked = Boolean(state.config.export?.include_bleed ?? true);
   document.getElementById("exp-crop-marks").checked = Boolean(state.config.export?.include_crop_marks ?? false);
@@ -1882,6 +2328,10 @@ function renderLibraryGrid() {
       const item = state.library.find((x) => x.id === Number(btn.dataset.libUse));
       if (!item || !state.config) return;
       if (item.category === "palette") {
+        if (!hasToolPermission("edit_colors")) {
+          toast("Alteração de cores CMYK bloqueada neste produto.", "warning");
+          return;
+        }
         pushUndoSnapshot();
         state.config.colors = cloneDeep(item.content);
         if (item.content.ruling_line_color) state.config.ruling.line_color = cloneDeep(item.content.ruling_line_color);
@@ -1891,6 +2341,10 @@ function renderLibraryGrid() {
       } else if (item.category === "phrase") {
         addNewPhraseElement(item.content?.text || item.name);
       } else if (item.category === "logo" || item.category === "graphic") {
+        if (!hasToolPermission("add_images")) {
+          toast("Inserção de imagens/logotipos bloqueada neste produto.", "warning");
+          return;
+        }
         if (state.libraryInsertMode === "footer") {
           pushUndoSnapshot();
           state.config.footer.logo_url = item.file_path;
@@ -1923,8 +2377,109 @@ function renderLibraryGrid() {
 
 function bindGlobalEvents() {
   // Theme toggles
+  document.getElementById("btn-theme-store")?.addEventListener("click", toggleTheme);
   document.getElementById("btn-theme-dash")?.addEventListener("click", toggleTheme);
   document.getElementById("btn-theme-ed")?.addEventListener("click", toggleTheme);
+
+  // Voltar do Studio Dashboard para a Loja
+  document.getElementById("btn-back-store-dash")?.addEventListener("click", () => {
+    document.getElementById("view-dashboard").classList.add("hidden");
+    document.getElementById("view-editor").classList.add("hidden");
+    document.getElementById("view-store")?.classList.remove("hidden");
+    window.dispatchEvent(new CustomEvent("eg-store-return", { detail: { targetRoute: "home" } }));
+  });
+
+  // Barra exclusiva do Cliente Personalizando
+  document.getElementById("btn-cust-back-store")?.addEventListener("click", () => closeCustomerEditor());
+  document.getElementById("btn-cust-save-version")?.addEventListener("click", async () => {
+    if (!state.customerMode) return;
+    const note = prompt("Nome ou observação desta versão (ex: Capa ajustada):", "");
+    if (note === null) return;
+    await saveCurrentProject(false, { createVersion: true, versionNote: note.trim() });
+  });
+  document.getElementById("cust-ed-version-select")?.addEventListener("change", async (ev) => {
+    if (!state.customerMode) return;
+    const ver = Number(ev.target.value);
+    if (!ver) return;
+    const res = await fetch(`/api/customizer/projects/${state.customerMode.projectId}/restore-version/${ver}`, {
+      method: "POST",
+      headers: { ...getAuthHeaders() },
+    });
+    if (!res.ok) {
+      toast("Não foi possível restaurar a versão.", "error");
+      return;
+    }
+    const data = await res.json();
+    const freshRes = await fetch(`/api/customizer/projects/${state.customerMode.projectId}`, {
+      headers: { ...getAuthHeaders() },
+    });
+    if (freshRes.ok) {
+      const fresh = await freshRes.json();
+      state.currentProject = fresh.project;
+      state.config = fresh.project.config;
+      if (fresh.pricing) state.customerMode.pricing = fresh.pricing;
+      if (fresh.versions) state.customerMode.versions = fresh.versions;
+    } else if (data.config) {
+      state.currentProject.version = data.version;
+      state.config = data.config;
+    }
+    state.isDirty = false;
+    setSaveBadge("saved");
+    updateCustomerBarUI();
+    renderLeftTab();
+    renderRightPanel();
+    await refreshCalendarAndRender(true);
+    toast(`Versão v${ver} restaurada (nova v${data.version}).`, "success");
+  });
+  document.getElementById("btn-cust-validate")?.addEventListener("click", async () => {
+    if (!state.customerMode) return;
+    const okSave = await saveCurrentProject(true);
+    if (!okSave) return;
+    openModal("modal-export");
+    const dlBtn = document.getElementById("btn-run-export-download");
+    if (dlBtn) dlBtn.classList.toggle("hidden", !hasToolPermission("download_final"));
+    const box = document.getElementById("preflight-report-box");
+    box.innerHTML = `<div style="padding:16px;color:var(--text-muted);">Executando validação automática de pré-impressão CMYK...</div>`;
+    try {
+      const res = await fetch(`/api/customizer/projects/${state.customerMode.projectId}/preflight`, {
+        method: "POST",
+        headers: { ...getAuthHeaders() },
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const report = await res.json();
+      renderPreflightReport(report, box);
+    } catch (err) {
+      box.innerHTML = `<div class="badge badge-danger">Erro na validação: ${escXml(err.message)}</div>`;
+    }
+  });
+  document.getElementById("btn-cust-add-cart")?.addEventListener("click", async () => {
+    if (!state.customerMode) return;
+    const btn = document.getElementById("btn-cust-add-cart");
+    const orig = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = "Salvando & Adicionando...";
+    try {
+      const okSave = await saveCurrentProject(true, { createVersion: true, versionNote: "Versão adicionada ao carrinho" });
+      if (!okSave) return;
+      const cm = state.customerMode;
+      if (window.EGStore?.addCustomizedProjectToCart) {
+        const added = await window.EGStore.addCustomizedProjectToCart({
+          productId: cm.productId,
+          variationId: cm.variationId,
+          projectId: cm.projectId,
+          selectedOptions: cm.selectedOptions || {},
+        });
+        if (added) {
+          await closeCustomerEditor("cart");
+        }
+      } else {
+        await closeCustomerEditor("cart");
+      }
+    } finally {
+      btn.disabled = false;
+      btn.textContent = orig;
+    }
+  });
 
   // Modals close buttons
   document.querySelectorAll("[data-close-modal]").forEach((b) => {
@@ -2026,6 +2581,10 @@ function bindGlobalEvents() {
     }
   });
   document.getElementById("tool-paste-el").addEventListener("click", () => {
+    if (!hasToolPermission("duplicate_pages")) {
+      toast("Colar/duplicar elementos bloqueado neste produto.", "warning");
+      return;
+    }
     if (!state.clipboardElement || !state.config) return;
     pushUndoSnapshot();
     const copy = cloneDeep(state.clipboardElement);
@@ -2039,6 +2598,10 @@ function bindGlobalEvents() {
     refreshCalendarAndRender(true);
   });
   document.getElementById("tool-center-h").addEventListener("click", () => {
+    if (!hasToolPermission("move_elements")) {
+      toast("Movimentação de elementos bloqueada neste produto.", "warning");
+      return;
+    }
     const el = getSelectedElement();
     if (!el) return;
     pushUndoSnapshot();
@@ -2158,7 +2721,7 @@ function bindGlobalEvents() {
     const btn = document.getElementById("btn-run-export-download");
     const orig = btn.textContent;
     btn.disabled = true;
-    btn.textContent = "⏳ Gerando PDF CMYK...";
+    btn.textContent = "Gerando PDF CMYK...";
     try {
       const fn = await downloadExportFile(state.currentProject.id, state.config, {
         export_mode: document.getElementById("exp-mode").value,
@@ -2202,7 +2765,7 @@ function bindGlobalEvents() {
     const btn = document.getElementById("btn-run-batch-export");
     const orig = btn.textContent;
     btn.disabled = true;
-    btn.textContent = `⏳ Gerando ${state.batchRecipients.length} PDFs...`;
+    btn.textContent = `Gerando ${state.batchRecipients.length} PDFs...`;
     try {
       const fn = await downloadBatchExport(state.currentProject.id, state.config, state.batchRecipients, {
         include_bleed: document.getElementById("batch-bleed").checked,
@@ -2302,6 +2865,7 @@ async function init() {
     onDoubleClickText: (id) => {
       state.selectedElementId = id;
       renderRightPanel();
+      if (!hasToolPermission("edit_text")) return;
       const ta = document.getElementById("ins-text");
       if (ta) {
         ta.focus();
@@ -2309,6 +2873,16 @@ async function init() {
       }
     },
   });
+
+  window.EGEditor = {
+    openCustomerProjectInEditor,
+    closeCustomerEditor,
+    openStudioDashboard,
+    openStudioProject: openProjectInEditor,
+    applyTheme,
+    toggleTheme,
+    getTheme: () => document.documentElement.getAttribute("data-theme") || "light",
+  };
 
   initTheme();
   bindGlobalEvents();

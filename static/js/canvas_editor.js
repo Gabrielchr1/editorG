@@ -89,7 +89,7 @@ export class CanvasEditorController {
     window.removeEventListener("pointerup", this._onPointerUp);
   }
 
-  render({ config, pages, currentIndex, zoomPct, showRulers, spreadMode, selectedId }) {
+  render({ config, pages, currentIndex, zoomPct, showRulers, spreadMode, selectedId, permissions = null }) {
     if (!pages || !pages.length) {
       this.stageEl.innerHTML = `<div class="badge badge-warning">Nenhuma página gerada. Verifique as datas.</div>`;
       return;
@@ -99,6 +99,7 @@ export class CanvasEditorController {
     this.zoomPct = zoomPct;
     this.pxPerMm = getPxPerMm(zoomPct);
     this.selectedId = selectedId;
+    this.permissions = permissions;
 
     const page = pages[currentIndex] || pages[0];
     const pagesToRender = [];
@@ -321,17 +322,27 @@ export class CanvasEditorController {
 
     if (!interactive) return div;
 
+    const p = this.permissions;
+    const canMove = !p || Boolean(p.move_elements);
+    const canResize = !p || Boolean(p.resize_elements);
+    const canRotate = !p || Boolean(p.rotate_elements);
+    if (!canMove) div.style.cursor = "pointer";
+
     div.addEventListener("pointerdown", (ev) => {
       ev.stopPropagation();
       this.onSelectElement(el.id);
       if (el.locked) return;
       const target = ev.target;
-      if (this.onElementDragStart) this.onElementDragStart();
       if (target.classList.contains("resize-handle")) {
+        if (!canResize) return;
+        if (this.onElementDragStart) this.onElementDragStart();
         this._startResize(ev, el, target.dataset.dir, div, trimArea);
       } else if (target.classList.contains("rotate-handle")) {
+        if (!canRotate) return;
+        if (this.onElementDragStart) this.onElementDragStart();
         this._startRotate(ev, el, div);
-      } else {
+      } else if (canMove) {
+        if (this.onElementDragStart) this.onElementDragStart();
         this._startMove(ev, el, div, trimArea, snapH, snapV);
       }
     });
@@ -344,16 +355,20 @@ export class CanvasEditorController {
     });
 
     if (isSelected && !el.locked) {
-      ["nw", "n", "ne", "e", "se", "s", "sw", "w"].forEach((dir) => {
-        const h = document.createElement("div");
-        h.className = `resize-handle rh-${dir}`;
-        h.dataset.dir = dir;
-        div.appendChild(h);
-      });
-      const rotH = document.createElement("div");
-      rotH.className = "rotate-handle";
-      rotH.title = "Arraste para girar o elemento";
-      div.appendChild(rotH);
+      if (canResize) {
+        ["nw", "n", "ne", "e", "se", "s", "sw", "w"].forEach((dir) => {
+          const h = document.createElement("div");
+          h.className = `resize-handle rh-${dir}`;
+          h.dataset.dir = dir;
+          div.appendChild(h);
+        });
+      }
+      if (canRotate) {
+        const rotH = document.createElement("div");
+        rotH.className = "rotate-handle";
+        rotH.title = "Arraste para girar o elemento";
+        div.appendChild(rotH);
+      }
     }
 
     return div;
